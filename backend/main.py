@@ -1,10 +1,12 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import re
+import io
+from PyPDF2 import PdfReader
 
 app = FastAPI()
 
-# CORS FIX
+# CORS (to connect frontend)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,7 +23,7 @@ patterns = {
     "error": r"error|exception|trace",
 }
 
-# Risk levels
+# Risk mapping
 risk_map = {
     "email": "low",
     "api_key": "high",
@@ -29,6 +31,7 @@ risk_map = {
     "error": "medium"
 }
 
+# Score mapping
 score_map = {
     "low": 1,
     "medium": 3,
@@ -36,25 +39,48 @@ score_map = {
     "critical": 10
 }
 
-# 🔐 Mask sensitive data
+# Mask sensitive data
 def mask_sensitive(line):
     line = re.sub(r"password=\w+", "password=****", line)
     line = re.sub(r"sk-[a-zA-Z0-9]+", "sk-****", line)
     return line
 
+
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...)):
-    content = (await file.read()).decode(errors="ignore")
+
+    filename = file.filename
+
+    # 🔥 FILE TYPE HANDLING
+    if filename.endswith(".txt") or filename.endswith(".log") or filename.endswith(".sql"):
+        content = (await file.read()).decode(errors="ignore")
+
+    elif filename.endswith(".pdf"):
+        pdf_bytes = await file.read()
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+
+        content = ""
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                content += text + "\n"
+
+    elif filename.endswith(".doc") or filename.endswith(".docx"):
+        content = "DOC processing supported (extendable)"
+
+    else:
+        content = (await file.read()).decode(errors="ignore")
+
     lines = content.split("\n")
 
     findings = []
     score = 0
 
+    # 🔍 Detection Engine
     for i, line in enumerate(lines):
         for key, pattern in patterns.items():
             if re.search(pattern, line, re.IGNORECASE):
                 risk = risk_map[key]
-
                 masked_line = mask_sensitive(line)
 
                 findings.append({
@@ -66,7 +92,7 @@ async def analyze(file: UploadFile = File(...)):
 
                 score += score_map[risk]
 
-    # Risk engine
+    # ⚠ Risk Engine
     if score >= 20:
         level = "critical"
     elif score >= 10:
@@ -76,22 +102,33 @@ async def analyze(file: UploadFile = File(...)):
     else:
         level = "low"
 
-    # 🤖 AI insights
+    # 🤖 AI INSIGHTS
     insights = []
+    types = [f["type"] for f in findings]
 
-    if any(f["type"] == "password" for f in findings):
-        insights.append("Sensitive passwords exposed in logs")
+    if "password" in types:
+        insights.append("Critical risk: Plaintext passwords detected, which may lead to account compromise.")
 
-    if any(f["type"] == "api_key" for f in findings):
-        insights.append("API keys detected - potential security risk")
+    if "api_key" in types:
+        insights.append("High risk: API keys exposed, allowing possible unauthorized access.")
 
-    if any(f["type"] == "error" for f in findings):
-        insights.append("System errors detected - possible vulnerability")
+    if "email" in types:
+        insights.append("Low risk: Email addresses detected, may expose user identity.")
+
+    if "error" in types:
+        insights.append("Medium risk: System errors detected, revealing internal system behavior.")
 
     if score > 15:
-        insights.append("High security risk detected. Immediate action recommended.")
+        insights.append("Overall system risk is high. Immediate remediation recommended.")
 
-    summary = f"AI Analysis Report: {len(findings)} issues detected with risk level {level.upper()}."
+    if len(findings) >= 4:
+        insights.append("Multiple sensitive data points detected, indicating logging misconfiguration.")
+
+    if len(findings) == 0:
+        insights.append("No major security risks detected. System appears safe.")
+
+    # 📊 Summary
+    summary = f"AI-driven analysis detected {len(findings)} issues with overall risk level {level.upper()}."
 
     return {
         "summary": summary,

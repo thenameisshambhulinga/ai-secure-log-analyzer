@@ -25,11 +25,11 @@ function App() {
   return (
     <div
       style={{
-        fontFamily: "Arial",
         background: "#111",
         color: "#fff",
         minHeight: "100vh",
         padding: "20px",
+        fontFamily: "Arial",
       }}
     >
       <h1>🔐 AI Secure Data Intelligence Platform</h1>
@@ -55,18 +55,26 @@ function App() {
           <h2>🛡 Security Status</h2>
           <p style={{ color: getColor(result.risk_level), fontWeight: "bold" }}>
             {result.risk_level === "high" || result.risk_level === "critical"
-              ? "⚠ System is Vulnerable"
-              : "✅ System is Safe"}
+              ? "⚠ SYSTEM IS VULNERABLE"
+              : "✅ SYSTEM IS SAFE"}
           </p>
 
           {/* Risk */}
           <h2>⚠ Risk Level</h2>
-          <h3 style={{ color: getColor(result.risk_level) }}>
+          <h3
+            style={{
+              color: getColor(result.risk_level),
+              background: "#222",
+              padding: "10px",
+              display: "inline-block",
+              borderRadius: "5px",
+            }}
+          >
             {result.risk_level.toUpperCase()} (Score: {result.risk_score})
           </h3>
 
           {/* Findings */}
-          <h2>🔍 Findings</h2>
+          <h2>🔍 Findings ({result.findings.length})</h2>
           <table border="1" cellPadding="10">
             <thead>
               <tr>
@@ -78,7 +86,7 @@ function App() {
             </thead>
             <tbody>
               {result.findings.map((f, i) => (
-                <tr key={i}>
+                <tr key={i} style={{ background: "#1a1a1a" }}>
                   <td>{f.type}</td>
                   <td>{f.line}</td>
                   <td>{f.content}</td>
