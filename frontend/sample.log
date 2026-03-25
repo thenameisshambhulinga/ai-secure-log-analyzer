@@ -1,0 +1,5 @@
+User login attempt
+email=admin@test.com
+password=admin123
+api_key=sk-prod-xyz
+ERROR NullPointerException at service.java:45
